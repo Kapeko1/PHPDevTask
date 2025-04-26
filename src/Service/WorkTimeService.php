@@ -33,8 +33,8 @@ class WorkTimeService   {
         if(!$employee)  {
             throw new NotFoundHttpException("Pracownik z ID: ". $inputDto->employeeId." nie został znaleziony");
         }
-        $startTime = DateTimeImmutable::createFromFormat(WorkTimeInputDto::DATE_FORMAT, $inputDto->startTimeString);
-        $endTime = DateTimeImmutable::createFromFormat(WorkTimeInputDto::DATE_FORMAT, $inputDto->endTimeString);
+        $startTime = $this->parseAndValidateDateTime($inputDto->startTimeString, 'data/godzina rozpoczęcia');
+        $endTime = $this->parseAndValidateDateTime($inputDto->endTimeString, 'data/godzina zakończenia');
 
 
         if ($endTime <= $startTime) {
@@ -67,6 +67,18 @@ class WorkTimeService   {
             throw new ConflictHttpException("Wystąpił nieoczekiwany błąd");
         }
         return $workTime;
+    }
+
+    private function parseAndValidateDateTime(string $dateTimeString, string $fieldNameForError): DateTimeImmutable {
+        $dateTime = DateTimeImmutable::createFromFormat(WorkTimeInputDto::DATE_FORMAT, $dateTimeString);
+        $errors = DateTimeImmutable::getLastErrors();
+
+        if ($dateTime === false || ($errors && ($errors['error_count'] > 0 || $errors['warning_count'] > 0))) {
+            throw new UnprocessableEntityHttpException(
+                "Podana ".$fieldNameForError." jest nieprawidłowa."
+            );
+        }
+        return $dateTime;
     }
 
 }
