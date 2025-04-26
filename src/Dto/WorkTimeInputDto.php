@@ -6,6 +6,8 @@ use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Serializer\Annotation\SerializedName;
 
 class WorkTimeInputDto  {
+    public const DATE_FORMAT = 'd.m.Y H:i';
+
     #[Assert\NotBlank(message: "Identyfikator nie może być pusty.")]
     #[Assert\Uuid(message: "Identyfikator musi być poprawnym UUID.")]
     #[SerializedName('unikalny_identyfikator_pracownika')]
