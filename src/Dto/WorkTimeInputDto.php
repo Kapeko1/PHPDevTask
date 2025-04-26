@@ -14,7 +14,7 @@ class WorkTimeInputDto  {
     public ?string $employeeId = null;
 
     #[Assert\NotBlank(message: "Początek czasu pracy nie może być pusty.")]
-    #[SerializedName('data_i_godzina_rozpoczęcia')]
+    #[SerializedName('data_i_godzina_rozpoczecia')]
     public ?string $startTimeString = null;
 
     #[Assert\NotBlank(message: "Koniec czasu pracy nie może być pusty.")]
