@@ -38,8 +38,9 @@ class WorkTimeService   {
         }
 
         $durationInterval = $startTime->diff($endTime);
-        if ($durationInterval->h > self::MAX_WORK_HOURS) {
-            throw new UnprocessableEntityHttpException("Czas pracy nie może być dłuższy niż " . self::MAX_WORK_HOURS . " godzin.");
+        $totalMinutes = ($durationInterval->days * 24 * 60) + ($durationInterval->h * 60) + $durationInterval->i;
+        if ($totalMinutes > self::MAX_WORK_HOURS * 60) {
+            throw new UnprocessableEntityHttpException("Czas pracy nie może przekraczać " . self::MAX_WORK_HOURS . " godzin.");
         }
 
         $startDay = $startTime->setTime(0, 0, 0);
