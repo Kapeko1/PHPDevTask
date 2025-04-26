@@ -66,4 +66,21 @@ class WorkTimeRepository extends ServiceEntityRepository
 
         return $query->getResult();
     }
+
+    public function hasMultipleEntriesPerEmployeePerDay(Employee $employee, DateTimeImmutable $startDay): bool
+    {
+        $dayToCheck = $startDay->setTime(0, 0, 0);
+
+        $count = $this->createQueryBuilder('wt')
+            ->select('COUNT(wt.id)')
+            ->where('wt.employee = :employeeIdParam')
+            ->andWhere('wt.startDay = :startDay')
+            ->setParameter('employeeIdParam', $employee->getId(), UuidType::NAME)
+            ->setParameter('startDay', $dayToCheck)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return (int)$count === 0;
+    }
+
 }

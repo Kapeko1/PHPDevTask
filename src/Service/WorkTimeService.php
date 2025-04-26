@@ -12,15 +12,19 @@ use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 use Symfony\Component\Uid\Uuid;
+use App\Repository\WorkTimeRepository;
 
 class WorkTimeService   {
     protected EntityManagerInterface $entityManager;
     protected EmployeeRepository $employeeRepository;
+    protected WorkTimeRepository $workTimeRepository;
+
 
     private const MAX_WORK_HOURS = 12;
-    public function __construct(EntityManagerInterface $entityManager, EmployeeRepository $employeeRepository)  {
+    public function __construct(EntityManagerInterface $entityManager, EmployeeRepository $employeeRepository, WorkTimeRepository $workTimeRepository)  {
         $this->entityManager = $entityManager;
         $this->employeeRepository = $employeeRepository;
+        $this->workTimeRepository = $workTimeRepository;
     }
 
     public function create(WorkTimeInputDto $inputDto): WorkTime    {
@@ -45,6 +49,10 @@ class WorkTimeService   {
 
         $startDay = $startTime->setTime(0, 0, 0);
 
+        if (!$this->workTimeRepository->hasMultipleEntriesPerEmployeePerDay($employee, $startDay)) {
+            throw new ConflictHttpException("Pracownik {$employee->getId()} ma już wpisany czas pracy dla dnia {$startDay->format('Y-m-d')}");
+        }
+
         $workTime = new WorkTime();
         $workTime->setEmployee($employee);
         $workTime->setStartTime($startTime);
@@ -55,7 +63,8 @@ class WorkTimeService   {
             $this->entityManager->persist($workTime);
             $this->entityManager->flush();
         } catch (UniqueConstraintViolationException $e) {
-            throw new ConflictHttpException("Pracownik {$employee->getId()} ma już wpisany czas pracy dla dnia {$startDay->format('Y-m-d')}.", $e);
+            //Leaving this catch in case of race conditions and hiding explicit error desc from users
+            throw new ConflictHttpException("Wystąpił nieoczekiwany błąd");
         }
         return $workTime;
     }
