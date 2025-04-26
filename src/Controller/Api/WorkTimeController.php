@@ -6,7 +6,9 @@ namespace App\Controller\Api;
 namespace App\Controller\Api;
 
 use App\Dto\WorkTimeInputDto;
+use App\Dto\WorkTimeSummaryInputDto;
 use App\Service\WorkTimeService;
+use App\Service\WorkTimeSummaryService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -52,4 +54,34 @@ class WorkTimeController extends AbstractController
             return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
+
+    #[Route('/summary', name: 'api_work_time_summary', methods: ['GET'])]
+    public function getSummary(
+        Request $request,
+        ValidatorInterface $validator,
+        WorkTimeSummaryService $summaryService,
+        SerializerInterface $serializer
+    ): JsonResponse {
+        $inputDto = new WorkTimeSummaryInputDto();
+        $inputDto->employeeId = $request->query->get('employeeId');
+        $inputDto->dateString = $request->query->get('date');
+
+        $errors = $validator->validate($inputDto);
+        if (count($errors) > 0) {
+            $errorMessages = [];
+            foreach ($errors as $error) {
+                $errorMessages[$error->getPropertyPath()][] = $error->getMessage();
+            }
+            return new JsonResponse(
+                ['errors' => $errorMessages], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $summaryDto = $summaryService->calculateSummary($inputDto);
+            return new JsonResponse(['response' => $serializer->normalize($summaryDto)], Response::HTTP_OK);
+        } catch (\Throwable $e) {
+            return new JsonResponse(['error' => 'Wystąpił nieoczekiwany błąd'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
 }
