@@ -2,9 +2,12 @@
 
 namespace App\Repository;
 
+use App\Entity\Employee;
 use App\Entity\WorkTime;
+use DateTimeImmutable;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Bridge\Doctrine\Types\UuidType;
 
 /**
  * @extends ServiceEntityRepository<WorkTime>
@@ -40,4 +43,27 @@ class WorkTimeRepository extends ServiceEntityRepository
     //            ->getOneOrNullResult()
     //        ;
     //    }
+
+    /**
+     * @param Employee $employee
+     * @param DateTimeImmutable $startDate
+     * @param DateTimeImmutable $endDate
+     * @return array
+     */
+    public function findByEmployeeAndDateRange(Employee $employee, DateTimeImmutable $startDate, DateTimeImmutable $endDate): array
+    {
+        $employeeId = $employee->getId();
+        $qb = $this->createQueryBuilder('wt')
+            ->andWhere('wt.employee = :employeeIdParam')
+            ->andWhere('wt.startDay >= :startDate')
+            ->andWhere('wt.startDay <= :endDate')
+            ->setParameter('employeeIdParam', $employeeId, UuidType::NAME)
+            ->setParameter('startDate', $startDate->format('Y-m-d'))
+            ->setParameter('endDate', $endDate->format('Y-m-d'))
+            ->orderBy('wt.startTime', 'ASC');
+
+        $query = $qb->getQuery();
+
+        return $query->getResult();
+    }
 }
