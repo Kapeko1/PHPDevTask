@@ -6,7 +6,9 @@ use App\DTO\WorkTimeInputDto;
 use App\Entity\WorkTime;
 use App\Repository\EmployeeRepository;
 use DateTimeImmutable;
+use Doctrine\DBAL\Exception\UniqueConstraintViolationException;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\HttpKernel\Exception\ConflictHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\Exception\UnprocessableEntityHttpException;
 use Symfony\Component\Uid\Uuid;
@@ -48,9 +50,12 @@ class WorkTimeService   {
         $workTime->setEndTime($endTime);
         $workTime->setStartDay($startDay);
 
-        $this->entityManager->persist($workTime);
-        $this->entityManager->flush();
-
+        try {
+            $this->entityManager->persist($workTime);
+            $this->entityManager->flush();
+        } catch (UniqueConstraintViolationException $e) {
+            throw new ConflictHttpException("Pracownik {$employee->getId()} ma już wpisany czas pracy dla dnia {$startDay->format('Y-m-d')}.", $e);
+        }
         return $workTime;
     }
 
