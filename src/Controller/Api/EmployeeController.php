@@ -3,6 +3,7 @@
 namespace App\Controller\Api;
 
 use App\Service\EmployeeService;
+use Exception;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -13,10 +14,17 @@ use Symfony\Component\Serializer\Exception\NotEncodableValueException;
 use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Component\Uid\Uuid;
+use App\Service\ErrorReportingService;
 
 
 #[Route('/api/v1/employees', name: 'employees')]
 class EmployeeController extends AbstractController {
+    protected ErrorReportingService $errorReportingService;
+
+    public function __construct(ErrorReportingService $errorReportingService) {
+        $this->errorReportingService = $errorReportingService;
+    }
+
     #[Route('', name: 'api_employee_create', methods: ['POST'])]
     public function createEmployee(
         Request $request,
@@ -28,9 +36,13 @@ class EmployeeController extends AbstractController {
             $employeeDto = $serializer->deserialize($request->getContent(), EmployeeInputDto::class, 'json');
 
         } catch (NotEncodableValueException $e) {
-            return new JsonResponse(['error' => 'Nieprawidłowy format JSON'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            $errorContext = ['raw_request_content' => $request->getContent()];
+            $errorId = $this->errorReportingService->reportError($e, $errorContext);
+            return new JsonResponse(['error' => 'Nieprawidłowy format JSON. Kod błędu: '. $errorId], Response::HTTP_UNPROCESSABLE_ENTITY);
         } catch (\Throwable $e) {
-            return new JsonResponse(['error' => 'Wystąpił nieoczekiwany błąd'], Response::HTTP_BAD_REQUEST);
+            $errorContext = ['raw_request_content' => $request->getContent()];
+            $errorId = $this->errorReportingService->reportError($e, $errorContext);
+            return new JsonResponse(['error' => 'Wystąpił nieoczekiwany błąd. Kod błędu: '. $errorId], Response::HTTP_BAD_REQUEST);
         }
 
         $errors = $validator->validate($employeeDto);
@@ -45,12 +57,21 @@ class EmployeeController extends AbstractController {
         try{
             $employee = $employeeService->create($employeeDto);
         } catch (\Throwable $e) {
-            return new JsonResponse(['error'=>'Wystąpił błąd podczas tworzenia użytkownika'], Response::HTTP_INTERNAL_SERVER_ERROR);
+            $errorContext = ['employeeDto' => (array) $employeeDto];
+            $errorId = $this->errorReportingService->reportError($e, $errorContext);
+            return new JsonResponse(['error'=>'Wystąpił błąd podczas tworzenia użytkownika. Kod błędu: ', $errorId], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
 
         $employeeId=$employee->getId();
         if (!$employeeId instanceof Uuid) {
-            return new JsonResponse(['error'=> 'Wystąpił błąd podczas pobierania identyfikatora pracownika po utworzeniu.'], Response::HTTP_INTERNAL_SERVER_ERROR);
+            $loggingException = new Exception("Failed to retrieve Uuid after creating Employee");
+            $errorContext = [
+                'employeeDto' => (array) $employeeDto,
+                'createdEmployeeObjectState' => $employee ? json_encode($employee) : null
+            ];
+            $errorId = $this->errorReportingService->reportError($loggingException, $errorContext);
+
+            return new JsonResponse(['error'=> 'Wystąpił błąd podczas pobierania identyfikatora pracownika po utworzeniu. Kod błędu: ', $errorId], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
 
         return new JsonResponse(['id'=>$employeeId->toString()], Response::HTTP_CREATED);

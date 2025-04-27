@@ -21,10 +21,13 @@ class WorkTimeService   {
 
 
     private const MAX_WORK_HOURS = 12;
-    public function __construct(EntityManagerInterface $entityManager, EmployeeRepository $employeeRepository, WorkTimeRepository $workTimeRepository)  {
+    protected ErrorReportingService $errorReportingService;
+
+    public function __construct(EntityManagerInterface $entityManager, EmployeeRepository $employeeRepository, WorkTimeRepository $workTimeRepository, ErrorReportingService $errorReportingService)  {
         $this->entityManager = $entityManager;
         $this->employeeRepository = $employeeRepository;
         $this->workTimeRepository = $workTimeRepository;
+        $this->errorReportingService = $errorReportingService;
     }
 
     public function create(WorkTimeInputDto $inputDto): WorkTime    {
@@ -63,8 +66,14 @@ class WorkTimeService   {
             $this->entityManager->persist($workTime);
             $this->entityManager->flush();
         } catch (UniqueConstraintViolationException $e) {
-            //Leaving this catch in case of race conditions and hiding explicit error desc from users
-            throw new ConflictHttpException("Wystąpił nieoczekiwany błąd");
+            $errorContext = [
+                'employeeId' => $inputDto->employeeId,
+                'startTime' => $inputDto->startTimeString,
+                'endTime' => $inputDto->endTimeString,
+            ];
+            $errorId = $this->errorReportingService->reportError($e, $errorContext);
+
+            throw new ConflictHttpException("Wystąpił nieoczekiwany błąd. Kod błędu - ". $errorId);
         }
         return $workTime;
     }
